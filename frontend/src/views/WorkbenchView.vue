@@ -50,6 +50,22 @@
           <td v-for="column in meta.fields" :key="column">{{ row[column] ?? '—' }}</td>
           <td>{{ row.status }}</td>
           <td class="row-actions">
+            <RouterLink
+              v-if="meta.key === 'result_deliver'"
+              class="link detail-link"
+              :to="`/result_deliver/${row.id}`"
+              :data-testid="`action-${row.id}-详情`"
+            >
+              详情/回执核对
+            </RouterLink>
+            <RouterLink
+              v-if="meta.key === 'reparse_task'"
+              class="link detail-link"
+              :to="`/reparse_task/${row.id}`"
+              :data-testid="`action-${row.id}-替换工作台`"
+            >
+              替换工作台
+            </RouterLink>
             <button
               v-for="action in meta.actions"
               :key="action"
@@ -88,6 +104,7 @@
 
     <footer class="page-foot">
       <span>共 {{ total }} 条{{ meta.name }}记录</span>
+      <span v-if="infoMessage" class="ok-text" data-testid="action-message">{{ infoMessage }}</span>
       <span v-if="errorMessage" class="error-text">{{ errorMessage }}</span>
     </footer>
   </section>
@@ -110,6 +127,7 @@ const meta = moduleMeta(props.moduleKey)
 const rows = ref<EntryRow[]>([])
 const total = ref(0)
 const errorMessage = ref('')
+const infoMessage = ref('')
 const filters = ref<Record<string, string>>({})
 const filterFields = meta.fields.slice(0, 3)
 const showCreate = ref(false)
@@ -167,9 +185,11 @@ async function submitCreate() {
 
 async function runAction(action: string, row: EntryRow) {
   errorMessage.value = ''
+  infoMessage.value = ''
   try {
     const result = await applyAction(meta.key, Number(row.id), action)
     if (!result.ok) throw new Error(result.message)
+    infoMessage.value = result.message
     await reload()
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '操作失败'
@@ -189,3 +209,12 @@ async function reload() {
 
 onMounted(reload)
 </script>
+
+<style scoped>
+.ok-text {
+  color: #067647;
+}
+.detail-link {
+  white-space: nowrap;
+}
+</style>

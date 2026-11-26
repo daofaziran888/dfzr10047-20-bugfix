@@ -4,6 +4,7 @@
 """
 from __future__ import annotations
 
+from copy import deepcopy
 from typing import Any
 
 from app.seed import SEED_ROWS
@@ -12,7 +13,9 @@ from app.seed import SEED_ROWS
 class Store:
     def __init__(self) -> None:
         self._tables: dict[str, list[dict[str, Any]]] = {
-            name: [dict(row) for row in rows] for name, rows in SEED_ROWS.items()
+            # 深拷贝：种子行内含“每次尝试回执”等嵌套 list/dict，
+            # 浅拷贝会让 reload_seed 后的嵌套对象在测试间共享并累积污染。
+            name: [deepcopy(row) for row in rows] for name, rows in SEED_ROWS.items()
         }
 
     def module_names(self) -> list[str]:
@@ -21,7 +24,7 @@ class Store:
     def reload_seed(self) -> None:
         """把全部表恢复成 seed.py 的初始示例数据，供本地重置与测试隔离使用。"""
         self._tables = {
-            name: [dict(row) for row in rows] for name, rows in SEED_ROWS.items()
+            name: [deepcopy(row) for row in rows] for name, rows in SEED_ROWS.items()
         }
 
     def rows(self, module: str) -> list[dict[str, Any]]:

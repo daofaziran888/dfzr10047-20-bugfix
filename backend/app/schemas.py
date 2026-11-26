@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Any, Generic, TypeVar
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 T = TypeVar("T")
 
@@ -27,5 +27,22 @@ class EntryPayload(BaseModel):
 
 
 class ActionPayload(BaseModel):
+    # 允许调用方把参数直接放在请求体顶层（如 {"action": "...", "credential": "..."}），
+    # 也支持统一放在 params 里，方便不同测试/脚本的调用习惯。
+    model_config = ConfigDict(extra="allow")
+
     action: str
     remark: str | None = None
+    params: dict[str, Any] = Field(default_factory=dict)
+
+    def merged_params(self) -> dict[str, Any]:
+        extra = {
+            key: value
+            for key, value in self.model_dump().items()
+            if key not in {"action", "remark", "params"} and value is not None
+        }
+        merged: dict[str, Any] = dict(extra)
+        merged.update(self.params or {})
+        if self.remark and "remark" not in merged:
+            merged["remark"] = self.remark
+        return merged

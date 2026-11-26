@@ -94,5 +94,42 @@ def create_entry(module: str, payload: EntryPayload) -> ActionResult:
 @router.post("/{module}/{entry_id}/actions", response_model=ActionResult)
 def run_action(module: str, entry_id: int, payload: ActionPayload) -> ActionResult:
     service = require_service(module)
-    entry, message = service.run_action(entry_id, payload.action.strip())
+    entry, message = service.run_action(
+        entry_id, payload.action.strip(),
+        params=payload.merged_params(), remark=payload.remark)
     return ActionResult(ok=entry is not None, message=message, entry=entry)
+
+
+@router.get("/result_deliver/no/{deliver_no}/detail", response_model=dict)
+def deliver_detail_by_no(deliver_no: str) -> dict[str, Any]:
+    """按投递记录编号读取详情：含每次尝试的独立回执与确认范围核对结论。"""
+    service = require_service("result_deliver")
+    detail = service.detail(deliver_no)  # type: ignore[attr-defined]
+    if detail is None:
+        raise HTTPException(status_code=404, detail=f"投递记录 {deliver_no} 不存在")
+    return detail
+
+
+@router.get("/result_deliver/no/{deliver_no}/attempts", response_model=dict)
+def deliver_attempts_by_no(deliver_no: str) -> dict[str, Any]:
+    """按投递记录编号列出每次尝试的独立回执。"""
+    service = require_service("result_deliver")
+    record = service._find(deliver_no)  # type: ignore[attr-defined]
+    if record is None:
+        raise HTTPException(status_code=404, detail=f"投递记录 {deliver_no} 不存在")
+    return {
+        "ok": True,
+        "投递记录编号": deliver_no,
+        "attempts": service.attempts_of(deliver_no),  # type: ignore[attr-defined]
+        "scope": service.confirmation_scope(deliver_no),  # type: ignore[attr-defined]
+    }
+
+
+@router.get("/reparse_task/no/{task_no}/workbench", response_model=dict)
+def reparse_workbench_by_no(task_no: str) -> dict[str, Any]:
+    """重解析替换工作台：确认范围、新轮替代申请、可继续操作与关联原回执。"""
+    service = require_service("reparse_task")
+    bench = service.workbench(task_no)  # type: ignore[attr-defined]
+    if bench is None:
+        raise HTTPException(status_code=404, detail=f"重解析单 {task_no} 不存在")
+    return bench
